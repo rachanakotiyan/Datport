@@ -1,0 +1,88 @@
+.calendar-heatmap {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.calendar-week {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-day {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  transition: transform var(--transition-fast);
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  transform: scale(1.5);
+  box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  z-index: 10;
+  border: 1px solid rgba(255,255,255,0.8);
+}
+
+.legend-mini {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.legend-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 24px;
+  justify-items: center;
+  padding: 16px 0;
+}
+
+.gauge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.gauge-svg {
+  width: 100px;
+  height: 100px;
+  transform: rotate(-90deg);
+}
+
+.gauge-bg {
+  fill: none;
+  stroke: rgba(99, 102, 241, 0.1);
+  stroke-width: 8;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1s ease-out, stroke 0.3s ease;
+}
+
+.gauge-text {
+  fill: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 700;
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+.gauge-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}

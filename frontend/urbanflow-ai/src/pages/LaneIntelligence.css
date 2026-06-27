@@ -1,0 +1,92 @@
+.lane-monitor {
+  display: flex;
+  flex-direction: column;
+  background: #111827;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.lane-bar {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  background: #1e293b;
+  position: relative;
+  padding: 0 20px;
+}
+
+.lane-divider {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.4) 50%, transparent 50%);
+  background-size: 40px 2px;
+  background-repeat: repeat-x;
+}
+
+.lane-number {
+  font-weight: 800;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  width: 60px;
+}
+
+.lane-info {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.lane-status-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.lane-status-indicator.active {
+  background: var(--success);
+  box-shadow: 0 0 10px var(--success);
+}
+
+.lane-status-indicator.standby {
+  background: var(--warning);
+  box-shadow: 0 0 10px var(--warning);
+  animation: standbyPulse 2s infinite;
+}
+
+.lane-status-indicator.emergency {
+  background: var(--danger);
+  box-shadow: 0 0 15px var(--danger);
+  animation: emergencyPulse 0.5s infinite alternate;
+}
+
+.inline-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: rgba(17, 24, 39, 0.8);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.inline-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s ease-out;
+}
+
+@keyframes standbyPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes emergencyPulse {
+  from { opacity: 0.5; box-shadow: 0 0 5px var(--danger); background: #fca5a5; }
+  to { opacity: 1; box-shadow: 0 0 25px var(--danger); background: var(--danger); }
+}
