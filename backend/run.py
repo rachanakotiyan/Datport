@@ -1,0 +1,8 @@
+import uvicorn
+import os
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    # We run uvicorn programmatically
+    print(f"Starting Smart Traffic Intelligence Backend on port {port}...")
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
