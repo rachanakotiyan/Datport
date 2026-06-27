@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Urban Traffic Congestion Analytics — Pangyo</title>
+  
+  <!-- Inter Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Styling -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Libraries (CDNs) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+
+  <!-- Loading Screen (Progressive feedback while parsing 76MB CSV) -->
+  <div id="loading-screen">
+    <div class="loader-text" id="loader-title">🚦 Initializing System...</div>
+    <div class="progress-bar">
+      <div id="progress-fill"></div>
+    </div>
+    <div class="loader-sub" id="loader-subtitle">Loading 266,000 traffic sensor records (Pangyo, South Korea)...</div>
+  </div>
+
+  <!-- Header Section -->
+  <header class="site-header">
+    <div class="header-left">
+      <span class="logo">🚦</span>
+      <div>
+        <h1>Urban Traffic Analytics</h1>
+        <span class="subtitle">Pangyo Techno Valley · July 2024</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="badge" id="badge-links">📡 66 Links</div>
+      <div class="badge" id="badge-rows">📊 266K Rows</div>
+      <div class="badge" id="badge-days">📅 14 Days</div>
+      <div id="live-clock" class="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- Sticky Navigation Tabs -->
+  <nav class="tab-nav">
+    <button class="tab active" data-page="overview">🏠 Overview</button>
+    <button class="tab" data-page="congestion">🔥 Congestion</button>
+    <button class="tab" data-page="predictions">🤖 AI Predictions</button>
+    <button class="tab" data-page="lanes">🛣️ Lane Analysis</button>
+    <button class="tab" data-page="safety">🚨 Accident Risk</button>
+    <button class="tab" data-page="recommendations">📋 Recommendations</button>
+  </nav>
+
+  <!-- Main View Container -->
+  <main class="main-content">
+    
+    <!-- ========================================== -->
+    <!-- PAGE 1: OVERVIEW                           -->
+    <!-- ========================================== -->
+    <div id="view-overview" class="page-view">
+      <!-- 6 KPI Row -->
+      <div class="kpi-row">
+        <div class="card kpi-card glow-indigo">
+          <div class="kpi-label">Total Vehicles</div>
+          <div class="kpi-value" id="kpi-vehicles">0</div>
+        </div>
+        <div class="card kpi-card glow-green">
+          <div class="kpi-label">Free-Flow Speed</div>
+          <div class="kpi-value" id="kpi-speed">0 <span style="font-size:1rem;font-weight:400;color:var(--text-secondary);">km/h</span></div>
+        </div>
+        <div class="card kpi-card glow-red">
+          <div class="kpi-label">Max Queue Delay</div>
+          <div class="kpi-value" id="kpi-delay">0 <span style="font-size:1rem;font-weight:400;color:var(--text-secondary);">sec</span></div>
+        </div>
+        <div class="card kpi-card glow-indigo">
+          <div class="kpi-label">Monitored Links</div>
+          <div class="kpi-value" id="kpi-links">0</div>
+        </div>
+        <div class="card kpi-card glow-amber">
+          <div class="kpi-label">Worst Link</div>
+          <div class="kpi-value" id="kpi-worst-link">--</div>
+        </div>
+        <div class="card kpi-card glow-red">
+          <div class="kpi-label">Worst Commute Day</div>
+          <div class="kpi-value" id="kpi-worst-day" style="font-size: 1.25rem;">--</div>
+        </div>
+      </div>
+
+      <!-- Overview Wide Heatmap -->
+      <div class="card card-glass full-width">
+        <div class="chart-title-bar">
+          <h3>🔥 Link-Hour Congestion Heatmap</h3>
+          <span style="font-size:0.75rem; color:var(--text-secondary);">Click any grid cell to drill down to that road segment on Page 2</span>
+        </div>
+        <div class="chart-container" id="chart-congestion-heatmap" style="height: 320px;"></div>
+      </div>
+
+      <!-- Second Row: Trend Line & Radial Clock -->
+      <div class="grid-2col">
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>📈 14-Day Traffic Volume Trend</h3>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-trend-vol" class="btn-primary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Volume</button>
+              <button id="btn-trend-spd" class="btn-secondary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Speed</button>
+              <button id="btn-trend-dly" class="btn-secondary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Delay</button>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-traffic-trend" style="height: 280px;"></div>
+        </div>
+
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🕐 24-Hour Radial Congestion Clock</h3>
+          </div>
+          <div class="chart-container" id="chart-radial-clock" style="height: 280px;"></div>
+        </div>
+      </div>
+
+      <!-- Third Row: Ranked hotspots & Top 10 Congested -->
+      <div class="grid-wide-narrow">
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🔥 Road Links Congestion Rankings</h3>
+            <div style="font-size:0.85rem; color:var(--text-secondary);" id="hotspots-date-label">Date: --</div>
+          </div>
+          
+          <div class="filter-bar" style="margin-bottom: 16px; padding: 10px; font-size: 0.85rem; background: rgba(10, 15, 30, 0.4);">
+            <div class="filter-group">
+              <label>Select Date</label>
+              <select id="hotspot-date-select" class="filter-control" style="min-width: 120px; padding: 4px 8px; font-size: 0.8rem;"></select>
+            </div>
+            <div class="filter-group">
+              <label>Hour Range</label>
+              <div class="filter-range">
+                <input type="range" id="hotspot-hour-start" min="0" max="23" value="0">
+                <span id="hotspot-hour-start-label">00:00</span>
+                <span>to</span>
+                <input type="range" id="hotspot-hour-end" min="0" max="23" value="23">
+                <span id="hotspot-hour-end-label">23:00</span>
+              </div>
+            </div>
+            <button id="hotspot-filter-reset" class="btn-secondary" style="height: 30px; padding: 4px 10px; font-size: 0.8rem;">Reset</button>
+          </div>
+
+          <div class="table-container" style="max-height: 400px;">
+            <table class="custom-table" id="hotspot-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Link ID</th>
+                  <th>Congestion Score</th>
+                  <th>Avg Speed</th>
+                  <th>Avg Delay</th>
+                  <th>Avg Occupancy</th>
+                  <th>Volume</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🏆 Top 10 Congested Links</h3>
+          </div>
+          <div class="chart-container" id="chart-top-links" style="height: 320px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 2: CONGESTION ANALYSIS                -->
+    <!-- ========================================== -->
+    <div id="view-congestion" class="page-view hidden">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="filter-link">Road Link</label>
+          <select id="filter-link" class="filter-control"></select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-date">Date</label>
+          <select id="filter-date" class="filter-control"></select>
+        </div>
+        <button id="btn-reset-congestion" class="btn-secondary">Reset Filters</button>
+      </div>
+
+      <div class="grid-wide-narrow">
+        
+        <div style="display:flex; flex-direction:column; gap:24px;">
+          <!-- 24h Time-Series Chart -->
+          <div class="card card-glass">
+            <div class="chart-title-bar">
+              <h3>📈 24-Hour Traffic Congestion Score</h3>
+              <div style="font-size:0.85rem; color:var(--text-secondary);" id="time-series-label">Link ID: -- | Date: --</div>
+            </div>
+            <div class="chart-container" id="chart-time-series" style="height: 300px;"></div>
+          </div>
+
+          <!-- Speed Over Time Line Chart -->
+          <div class="card card-glass">
+            <div class="chart-title-bar">
+              <h3>📉 Arithmetic vs Harmonic Speed Comparison</h3>
+              <span style="font-size:0.75rem; color:var(--text-secondary);">Red region indicates severe stop-and-go braking</span>
+            </div>
+            <div class="chart-container" id="chart-speed-over-time" style="height: 250px;"></div>
+          </div>
+
+          <!-- Queue Delay Area Chart -->
+          <div class="card card-glass">
+            <div class="chart-title-bar">
+              <h3>⏱️ Queue Delay Timeline</h3>
+            </div>
+            <div class="chart-container" id="chart-queue-delay-area" style="height: 220px;"></div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:24px;">
+          <!-- Link Stats card -->
+          <div class="card card-glass">
+            <h3 style="margin-bottom: 16px; font-weight:600; display:flex; align-items:center; gap:8px;">
+              <span>📡</span> Link ID <span id="link-info-id">--</span> Summary
+            </h3>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+              <div>
+                <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-secondary);">Avg Congestion</div>
+                <div style="font-size:1.5rem; font-weight:700; color:var(--accent);" id="link-info-avg-score">0.0</div>
+              </div>
+              <div>
+                <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-secondary);">Max Congestion</div>
+                <div style="font-size:1.5rem; font-weight:700; color:var(--congested);" id="link-info-max-score">0.0</div>
+              </div>
+              <div>
+                <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-secondary);">Peak Time</div>
+                <div style="font-size:1.1rem; font-weight:700; color:var(--text-primary);" id="link-info-peak-time">00:00</div>
+              </div>
+              <div>
+                <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-secondary);">Day Volume</div>
+                <div style="font-size:1.1rem; font-weight:700; color:var(--free-flow);" id="link-info-volume">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ML Predicted Peaks Card -->
+          <div class="card card-glass" style="border-top: 3px solid var(--accent);">
+            <h4 style="margin-bottom: 12px; font-weight:600; display:flex; align-items:center; gap:8px;">
+              <span>🔮</span> ML Predicted Peak Windows
+            </h4>
+            <div id="ml-peaks-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Lane Occupancy Gauges Section -->
+      <div class="card card-glass full-width" style="margin-top: 24px;">
+        <div class="chart-title-bar">
+          <h3>🌡️ Lane-Level Occupancy Rates</h3>
+          <span style="font-size:0.75rem; color:var(--text-secondary);">Average occupancy level across active 5-minute segments</span>
+        </div>
+        <div id="lane-gauges-container" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:12px; height:180px;">
+          <div id="gauge-lane-1" style="height:100%;"></div>
+          <div id="gauge-lane-2" style="height:100%;"></div>
+          <div id="gauge-lane-3" style="height:100%;"></div>
+          <div id="gauge-lane-4" style="height:100%;"></div>
+          <div id="gauge-lane-5" style="height:100%;"></div>
+          <div id="gauge-lane-6" style="height:100%;"></div>
+        </div>
+      </div>
+
+      <!-- Third Row Page 2: Fundamental Diagram & Weekday Volume -->
+      <div class="grid-2col" style="margin-top: 24px;">
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🔵 Fundamental Traffic Diagram (Speed vs. Volume)</h3>
+          </div>
+          <div class="chart-container" id="chart-traffic-diagram" style="height: 280px;"></div>
+        </div>
+
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>📊 Volume by Hour (Weekday vs. Weekend)</h3>
+          </div>
+          <div class="chart-container" id="chart-volume-by-hour" style="height: 280px;"></div>
+        </div>
+      </div>
+
+      <!-- Calendar Heatmap full width -->
+      <div class="card card-glass full-width" style="margin-top:24px;">
+        <div class="chart-title-bar">
+          <h3>🗓️ 14-Day Traffic Calendar Heatmap</h3>
+          <span style="font-size:0.75rem; color:var(--text-secondary);">Click a calendar day to filter all charts above to that day</span>
+        </div>
+        <div class="chart-container" id="chart-calendar-heatmap" style="height: 180px;"></div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 3: AI PREDICTIONS                     -->
+    <!-- ========================================== -->
+    <div id="view-predictions" class="page-view hidden">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="filter-link-pred">Road Link</label>
+          <select id="filter-link-pred" class="filter-control"></select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-date-pred">Date</label>
+          <select id="filter-date-pred" class="filter-control"></select>
+        </div>
+      </div>
+
+      <!-- Model Performance Scorecards -->
+      <div class="card card-glass full-width" style="margin-bottom: 24px;">
+        <h3 style="margin-bottom:16px;">🎯 LightGBM Model Performance Scorecard</h3>
+        <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:16px;">
+          <div class="card kpi-card glow-green" style="padding:16px; background:rgba(30,45,69,0.3);">
+            <div class="kpi-label">Speed MAE</div>
+            <div class="kpi-value" id="scorecard-mae" style="font-size:1.8rem;">6.84 <span style="font-size:0.8rem; font-weight:400;">km/h</span></div>
+          </div>
+          <div class="card kpi-card glow-green" style="padding:16px; background:rgba(30,45,69,0.3);">
+            <div class="kpi-label">Speed R²</div>
+            <div class="kpi-value" id="scorecard-r2" style="font-size:1.8rem;">0.90</div>
+          </div>
+          <div class="card kpi-card glow-green" style="padding:16px; background:rgba(30,45,69,0.3);">
+            <div class="kpi-label">Delay RMSE</div>
+            <div class="kpi-value" id="scorecard-rmse" style="font-size:1.8rem;">22.5 <span style="font-size:0.8rem; font-weight:400;">sec</span></div>
+          </div>
+          <div class="card kpi-card glow-green" style="padding:16px; background:rgba(30,45,69,0.3);">
+            <div class="kpi-label">Accuracy</div>
+            <div class="kpi-value" id="scorecard-acc" style="font-size:1.8rem;">91.2%</div>
+          </div>
+          <div class="card kpi-card glow-green" style="padding:16px; background:rgba(30,45,69,0.3);">
+            <div class="kpi-label">AUC-ROC</div>
+            <div class="kpi-value" id="scorecard-auc" style="font-size:1.8rem;">0.94</div>
+          </div>
+          <div class="card kpi-card glow-green" style="padding:16px; background:rgba(30,45,69,0.3);">
+            <div class="kpi-label">vs Baseline</div>
+            <div class="kpi-value" id="scorecard-improvement" style="font-size:1.8rem;">+28.5%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Predicted vs Actual Line Chart -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>📈 Predicted vs. Actual Metrics</h3>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-pred-spd" class="btn-primary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Speed</button>
+              <button id="btn-pred-dly" class="btn-secondary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Delay</button>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-pred-vs-actual" style="height: 280px;"></div>
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:8px; text-align:center;">
+            Model trained on July 1–10. Predicting July 11–14 (Test Phase).
+          </div>
+        </div>
+
+        <!-- 24-Hour Forecast Probability -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🔮 24-Hour Congestion Probability Forecast</h3>
+          </div>
+          <div class="chart-container" id="chart-congestion-forecast" style="height: 280px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-2col" style="margin-top:24px;">
+        <!-- Feature Importance -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🧠 LightGBM Feature Importance (Decision Weights)</h3>
+          </div>
+          <div class="chart-container" id="chart-feature-importance" style="height: 320px;"></div>
+        </div>
+
+        <!-- Interactive Widget -->
+        <div class="card card-glass" style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+              <span>🎮</span> Try the AI Predictor (Interactive Classifier)
+            </h3>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:16px;">
+              Input specific environmental settings and simulate the LightGBM decision tree results in real-time.
+            </p>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+              <div class="filter-group">
+                <label>Road Link</label>
+                <select id="widget-link" class="filter-control" style="width:100%;"></select>
+              </div>
+              <div class="filter-group">
+                <label>Day of Week</label>
+                <select id="widget-day" class="filter-control" style="width:100%;">
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                  <option value="7">Sunday</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="filter-group" style="margin-bottom: 24px;">
+              <label>Hour of Day</label>
+              <div class="filter-range">
+                <input type="range" id="widget-hour" min="0" max="23" value="8" style="width:100%;">
+                <span id="widget-hour-label" style="font-weight:700;">08:00 AM</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--bg-border); padding-top:16px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;" id="widget-outputs-container">
+              <div style="background:rgba(30,45,69,0.3); padding:10px; border-radius:8px; border:1px solid var(--bg-border);">
+                <div style="font-size:0.75rem; color:var(--text-secondary);">Predicted Speed</div>
+                <div style="font-size:1.25rem; font-weight:700; color:var(--free-flow);" id="widget-out-speed">-- km/h</div>
+              </div>
+              <div style="background:rgba(30,45,69,0.3); padding:10px; border-radius:8px; border:1px solid var(--bg-border);">
+                <div style="font-size:0.75rem; color:var(--text-secondary);">Congestion Probability</div>
+                <div style="font-size:1.25rem; font-weight:700; color:var(--accent);" id="widget-out-prob">--%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Residual Error Histogram -->
+      <div class="card card-glass full-width" style="margin-top:24px;">
+        <div class="chart-title-bar">
+          <h3>📉 Prediction Error Residual Distribution (Speed residuals)</h3>
+          <span style="font-size:0.75rem; color:var(--text-secondary);">Symmetric distribution around zero represents an unbiased model</span>
+        </div>
+        <div class="chart-container" id="chart-residual-error" style="height: 220px;"></div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 4: LANE ANALYSIS                      -->
+    <!-- ========================================== -->
+    <div id="view-lanes" class="page-view hidden">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="filter-link-lanes">Road Link</label>
+          <select id="filter-link-lanes" class="filter-control"></select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-date-lanes">Date</label>
+          <select id="filter-date-lanes" class="filter-control"></select>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Lane Radar Chart -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🕸️ Per-Lane Characteristic Spider Radar</h3>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-radar-spd" class="btn-primary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Speed</button>
+              <button id="btn-radar-occ" class="btn-secondary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Occupancy</button>
+              <button id="btn-radar-vol" class="btn-secondary" style="height:26px; padding:2px 8px; font-size:0.75rem;">Volume</button>
+            </div>
+          </div>
+          <!-- Time dropdown for radar snapshot -->
+          <div class="filter-group" style="margin-bottom:12px; max-width:150px;">
+            <label style="font-size:0.7rem;">Select Interval</label>
+            <select id="radar-time-select" class="filter-control" style="padding:4px; font-size:0.8rem; min-width:100%;"></select>
+          </div>
+          <div class="chart-container" id="chart-lane-radar" style="height: 240px;"></div>
+        </div>
+
+        <!-- Lane Stacked Distribution -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>📊 Per-Lane Hourly Volume Stacked Distribution</h3>
+          </div>
+          <div class="chart-container" id="chart-lane-distribution" style="height: 310px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-wide-narrow" style="margin-top:24px;">
+        <!-- Lane Balance Index line -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>⚖️ Lane Balance Index (LBI) Trend</h3>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">1.0 = highly imbalanced volume distribution</span>
+          </div>
+          <div class="chart-container" id="chart-lane-balance" style="height: 250px;"></div>
+        </div>
+
+        <!-- Lane 6 activity table -->
+        <div class="card card-glass">
+          <h3 style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <span>🚨</span> Lane 6 Flex/Emergency Activation Logs
+          </h3>
+          <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:12px;">
+            List of intervals where the reserve emergency lane carried traffic volumes.
+          </p>
+          <div class="table-container" style="max-height: 220px;">
+            <table class="custom-table" id="lane-6-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Link</th>
+                  <th>Volume</th>
+                  <th>Speed</th>
+                  <th>Severity</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-lane stats table -->
+      <div class="card card-glass full-width" style="margin-top:24px;">
+        <h3 style="margin-bottom:16px;">📋 24-Hour Per-Lane Aggregated Performance Metrics</h3>
+        <div class="table-container">
+          <table class="custom-table" id="per-lane-stats-table">
+            <thead>
+              <tr>
+                <th>Lane</th>
+                <th>Average Speed</th>
+                <th>Average Delay</th>
+                <th>Maximum Occupancy</th>
+                <th>Average Volume (5-min)</th>
+                <th>Operation Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 5: ACCIDENT RISK                      -->
+    <!-- ========================================== -->
+    <div id="view-safety" class="page-view hidden">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="filter-link-safety">Road Link</label>
+          <select id="filter-link-safety" class="filter-control"></select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-date-safety">Date</label>
+          <select id="filter-date-safety" class="filter-control"></select>
+        </div>
+      </div>
+
+      <!-- Risk Heatmap -->
+      <div class="card card-glass full-width" style="margin-bottom: 24px;">
+        <div class="chart-title-bar">
+          <h3>🗺️ Accident Risk Zone Heatmap (Link ID × Hour of Day)</h3>
+          <span style="font-size:0.75rem; color:var(--text-secondary);">Color grid maps composite Accident Risk Score (0 - 10)</span>
+        </div>
+        <div class="chart-container" id="chart-risk-heatmap" style="height: 320px;"></div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- ARS Trend Line -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>📈 Accident Risk Score (ARS) 24h Trend</h3>
+          </div>
+          <div class="chart-container" id="chart-risk-trend" style="height: 280px;"></div>
+        </div>
+
+        <!-- Risk Clock radial -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3>🕐 Hourly Risk Clock (Average ARS by Hour)</h3>
+          </div>
+          <div class="chart-container" id="chart-risk-radial-clock" style="height: 280px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-wide-narrow" style="margin-top:24px;">
+        <!-- Live High-Risk event feed -->
+        <div class="card card-glass">
+          <div class="chart-title-bar">
+            <h3 style="display:flex; align-items:center; gap:8px;">
+              <span>⚡</span> Live High-Risk Event Logs
+              <span style="display:inline-block; width:8px; height:8px; background:#ef4444; border-radius:50%; box-shadow:0 0 8px #ef4444;" class="live-badge"></span>
+            </h3>
+          </div>
+          <div class="table-container" style="max-height: 400px;">
+            <table class="custom-table" id="safety-events-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Link ID</th>
+                  <th>ARS Score</th>
+                  <th>Dominant Risk Signal</th>
+                  <th>Severity</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:24px;">
+          <!-- Top 10 riskiest links -->
+          <div class="card card-glass">
+            <div class="chart-title-bar">
+              <h3>🏆 Top 10 Dangerous Links</h3>
+            </div>
+            <div class="chart-container" id="chart-risky-links" style="height: 200px;"></div>
+          </div>
+
+          <!-- Risk breakdown stacked bar -->
+          <div class="card card-glass">
+            <div class="chart-title-bar">
+              <h3>📊 Risk Factor Breakdown (Signal Contributions)</h3>
+            </div>
+            <div class="chart-container" id="chart-risk-breakdown" style="height: 200px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auto Prevention recommendation panel -->
+      <div class="card card-glass full-width" style="margin-top:24px; border-left: 4px solid var(--accent);">
+        <h3 style="margin-bottom:16px;">🛡️ Proactive Accident Mitigation Advisory Panel</h3>
+        <div id="prevention-panel" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px;"></div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 6: RECOMMENDATIONS                    -->
+    <!-- ========================================== -->
+    <div id="view-recommendations" class="page-view hidden">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="filter-date-recs">Date</label>
+          <select id="filter-date-recs" class="filter-control"></select>
+        </div>
+        <button id="btn-export-csv" class="btn-primary" style="margin-left:auto;">📥 Export Predictions CSV</button>
+      </div>
+
+      <!-- Commuter Loss Stats -->
+      <div class="kpi-row">
+        <div class="card kpi-card glow-red" style="grid-column: span 2;">
+          <div class="kpi-label">Cumulative Commuter Time Lost</div>
+          <div class="kpi-value" id="kpi-loss-hours">0 <span style="font-size:1.1rem; font-weight:400; color:var(--text-secondary);">Hours</span></div>
+        </div>
+        <div class="card kpi-card glow-red" style="grid-column: span 2;">
+          <div class="kpi-label">Economic Loss Cost</div>
+          <div class="kpi-value" id="kpi-loss-cost">$0</div>
+        </div>
+        <div class="card kpi-card glow-green" style="grid-column: span 2;">
+          <div class="kpi-label">Savings Potential (At 20% congestion reduction)</div>
+          <div class="kpi-value" id="kpi-loss-saving">$0 <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">/ Year</span></div>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Signal timing table -->
+        <div class="card card-glass">
+          <h3 style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <span>🚦</span> Smart Signal Timing Recommendations
+          </h3>
+          <div class="table-container">
+            <table class="custom-table" id="signal-timing-table">
+              <thead>
+                <tr>
+                  <th>Link ID</th>
+                  <th>Time Window</th>
+                  <th>Avg Queue Delay</th>
+                  <th>Mitigation Action</th>
+                  <th>Priority</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Lane control cards -->
+        <div class="card card-glass">
+          <h3 style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <span>🛣️</span> Dynamic Lane Allocation Recommendations
+          </h3>
+          <div id="lane-control-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </div>
+      </div>
+
+      <!-- Weekly optimization calendar -->
+      <div class="card card-glass full-width" style="margin-top:24px;">
+        <h3 style="margin-bottom:16px;">📅 Weekly Intersection Optimization Calendar</h3>
+        <div id="interventions-calendar" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:12px; height:120px;">
+          <!-- Populated dynamically (Mon-Sun cards) -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Script Modules -->
+  <script src="dataAdapter.js"></script>
+  <script src="views/overviewView.js"></script>
+  <script src="views/congestionView.js"></script>
+  <script src="views/predictionsView.js"></script>
+  <script src="views/lanesView.js"></script>
+  <script src="views/safetyView.js"></script>
+  <script src="views/recommendationsView.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
