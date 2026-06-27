@@ -1,0 +1,21 @@
+# Python caching
+__pycache__/
+app/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local Environment variables (contains private API keys)
+.env
+.env.*
+
+# Datasets and model binary weight files (Large files)
+data/
+models/*.pkl
+
+# Local IDE configs
+.vscode/
+.idea/
+*.swp
+*.swo

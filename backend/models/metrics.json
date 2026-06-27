@@ -1,0 +1,11 @@
+{
+  "speed_mae": 0.998,
+  "speed_r2": 0.9909,
+  "delay_rmse": 56.52,
+  "delay_r2": 0.8214,
+  "congestion_accuracy": 88.78,
+  "congestion_auc": 0.9582,
+  "risk_mae": 0.165,
+  "risk_r2": 0.7188,
+  "improvement_vs_baseline": 35.73
+}
