@@ -124,6 +124,14 @@ const CongestionView = {
   async render() {
     this.init();
 
+    // Trigger loading spinner states on ECharts panels
+    if (this.charts.timeSeries) this.charts.timeSeries.showLoading({ text: 'Loading...', color: '#6366f1', textColor: '#f1f5f9', maskColor: 'rgba(17, 24, 39, 0.6)' });
+    if (this.charts.speedComparison) this.charts.speedComparison.showLoading({ text: 'Loading...', color: '#6366f1', textColor: '#f1f5f9', maskColor: 'rgba(17, 24, 39, 0.6)' });
+    if (this.charts.queueDelay) this.charts.queueDelay.showLoading({ text: 'Loading...', color: '#6366f1', textColor: '#f1f5f9', maskColor: 'rgba(17, 24, 39, 0.6)' });
+    if (this.charts.trafficDiagram) this.charts.trafficDiagram.showLoading({ text: 'Loading...', color: '#6366f1', textColor: '#f1f5f9', maskColor: 'rgba(17, 24, 39, 0.6)' });
+    if (this.charts.volumeByHour) this.charts.volumeByHour.showLoading({ text: 'Loading...', color: '#6366f1', textColor: '#f1f5f9', maskColor: 'rgba(17, 24, 39, 0.6)' });
+    if (this.charts.calendarHeatmap) this.charts.calendarHeatmap.showLoading({ text: 'Loading...', color: '#6366f1', textColor: '#f1f5f9', maskColor: 'rgba(17, 24, 39, 0.6)' });
+
     // 1. Fetch data from adapter
     const series = await DataAdapter.getLinkTimeSeries(this.selectedLinkId, this.selectedDate);
 
@@ -161,7 +169,7 @@ const CongestionView = {
       document.getElementById('link-info-volume').textContent = '0';
     }
 
-    // 3. Draw charts
+    // 3. Draw charts and clear spinner states
     this.drawTimeSeriesChart(series);
     this.drawSpeedComparison(series);
     this.drawQueueDelay(series);
@@ -176,6 +184,7 @@ const CongestionView = {
 
   drawTimeSeriesChart(data) {
     if (!this.charts.timeSeries) return;
+    this.charts.timeSeries.hideLoading();
 
     const xAxisData = data.map(item => item.time);
     const scores = data.map(item => item.congestionScore);
@@ -251,6 +260,7 @@ const CongestionView = {
    */
   drawSpeedComparison(data) {
     if (!this.charts.speedComparison) return;
+    this.charts.speedComparison.hideLoading();
 
     const times = data.map(item => item.time);
     const speedArith = data.map(item => item.speedArith);
@@ -326,6 +336,7 @@ const CongestionView = {
    */
   drawQueueDelay(data) {
     if (!this.charts.queueDelay) return;
+    this.charts.queueDelay.hideLoading();
 
     const times = data.map(item => item.time);
     const delays = data.map(item => item.delay);
@@ -471,6 +482,7 @@ const CongestionView = {
    */
   async drawTrafficDiagram() {
     if (!this.charts.trafficDiagram) return;
+    this.charts.trafficDiagram.hideLoading();
 
     const data = await DataAdapter.getSpeedAndDelayCorrelation(this.selectedLinkId, this.selectedDate);
 
@@ -529,6 +541,7 @@ const CongestionView = {
    */
   async drawVolumeByHour() {
     if (!this.charts.volumeByHour) return;
+    this.charts.volumeByHour.hideLoading();
 
     const vData = await DataAdapter.getWeekdayVsWeekendVolume(this.selectedLinkId);
     const hours = Array(24).fill(null).map((_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -583,6 +596,7 @@ const CongestionView = {
    */
   async drawCalendarHeatmap() {
     if (!this.charts.calendarHeatmap) return;
+    this.charts.calendarHeatmap.hideLoading();
 
     const calData = await DataAdapter.getCalendarHeatmap();
 

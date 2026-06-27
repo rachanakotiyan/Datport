@@ -117,7 +117,8 @@ const OverviewView = {
   /**
    * Renders overview KPI cards (count-up effect).
    */
-  renderKPIs() {
+  async renderKPIs() {
+    await DataAdapter.updateGlobalStats();
     const stats = DataAdapter.stats;
     animateCount(document.getElementById('kpi-vehicles'), stats.totalVehicles, 1500);
     animateCount(document.getElementById('kpi-speed'), Math.round(stats.freeFlowSpeedAvg), 1000);
@@ -321,10 +322,23 @@ const OverviewView = {
     
     document.getElementById('hotspots-date-label').textContent = `Date: ${this.selectedDate} (${startHour}:00 - ${endHour}:00)`;
 
+    // Table loading state
+    const tableBody = document.querySelector('#hotspot-table tbody');
+    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;"><div class="spinner" style="vertical-align: middle; margin-right: 8px;"></div> Loading road hotspots...</td></tr>';
+
+    // Chart loading state
+    if (this.charts.topLinks) {
+      this.charts.topLinks.showLoading({
+        text: 'Fetching from API...',
+        color: '#6366f1',
+        textColor: '#f1f5f9',
+        maskColor: 'rgba(17, 24, 39, 0.6)'
+      });
+    }
+
     const hotspots = await DataAdapter.getHotspots(this.selectedDate, { startHour, endHour });
 
     // Table Populate
-    const tableBody = document.querySelector('#hotspot-table tbody');
     tableBody.innerHTML = '';
 
     hotspots.forEach((spot, idx) => {
@@ -354,6 +368,11 @@ const OverviewView = {
     });
 
     this.renderTopLinksChart(hotspots.slice(0, 10));
+    
+    // Hide chart loader
+    if (this.charts.topLinks) {
+      this.charts.topLinks.hideLoading();
+    }
   },
 
   renderTopLinksChart(topSpots) {
@@ -404,12 +423,12 @@ const OverviewView = {
     this.charts.topLinks.setOption(option);
   },
 
-  render() {
+  async render() {
     this.init();
-    this.renderKPIs();
+    await this.renderKPIs();
     this.renderHeatmap();
     this.renderTrend();
     this.renderRadialClock();
-    this.renderHotspots();
+    await this.renderHotspots();
   }
 };

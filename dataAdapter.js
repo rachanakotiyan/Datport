@@ -4,6 +4,28 @@
  * Translates raw CSV fields into structured metrics (ARS, LBI, forecasts, recommendations).
  */
 
+const BACKEND_URL = 'http://localhost:8000';
+
+/**
+ * Helper to execute fetch queries with a specific network timeout.
+ * Prevents UI hang-ups if the backend server is unresponsive.
+ */
+async function fetchWithTimeout(url, options = {}, timeout = 1500) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+}
+
 const DataAdapter = {
   isLoaded: false,
   allData: [],
@@ -22,6 +44,27 @@ const DataAdapter = {
     peakHourMaxDelay: 0,
     mostCongestedLink: null,
     worstDay: null
+  },
+
+  /**
+   * Connects to the city intelligence endpoint in the backend.
+   * Silently falls back to local CSV aggregates if the API is down.
+   */
+  async updateGlobalStats() {
+    try {
+      const res = await fetchWithTimeout(`${BACKEND_URL}/api/intelligence/city`);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data = await res.json();
+      
+      console.log("[DataAdapter] Successfully updated KPI statistics from FastAPI backend.");
+      this.stats.mostCongestedLink = data.worst_road;
+      
+      // Optionally map other aggregates if they are not computed locally
+      return true;
+    } catch (e) {
+      console.warn(`[DataAdapter] GET /api/intelligence/city failed: ${e.message}. Silently falling back to CSV values.`);
+      return false;
+    }
   },
 
   /**
@@ -390,45 +433,71 @@ const DataAdapter = {
   // =========================================================================
 
   async getHotspots(date, timeWindow) {
-    const dateRows = this.dataByDate[date] || [];
-    let filtered = dateRows;
+    try {
+      const res = await fetchWithTimeout(`${BACKEND_URL}/api/intelligence/roads`);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data = await res.json();
 
-    if (timeWindow && timeWindow.startHour !== undefined && timeWindow.endHour !== undefined) {
-      filtered = dateRows.filter(r => r.hour >= timeWindow.startHour && r.hour <= timeWindow.endHour);
-    }
-
-    const linkAgg = {};
-    for (const r of filtered) {
-      if (!linkAgg[r.linkId]) {
-        linkAgg[r.linkId] = {
-          linkId: r.linkId,
-          scoreSum: 0,
-          speedSum: 0,
-          delaySum: 0,
-          occSum: 0,
-          volumeSum: 0,
-          count: 0
+      console.log("[DataAdapter] Successfully fetched road intelligence hotspots from FastAPI backend.");
+      
+      const hotspots = data.map(item => {
+        // Map road_health_score (100 is clear, 0 is congested) to congestionScore (0 to 10)
+        const congestionScore = Math.max(0, 10.0 - (item.road_health_score / 10.0));
+        return {
+          linkId: item.link_id,
+          congestionScore: congestionScore,
+          avgSpeed: item.avg_speed,
+          avgDelay: item.avg_delay,
+          avgOccupancy: item.avg_occupancy,
+          volume: Math.round(item.avg_occupancy * 1200) // proxy volume estimate since backend doesn't provide it
         };
+      });
+
+      return hotspots.sort((a, b) => b.congestionScore - a.congestionScore);
+    } catch (e) {
+      console.warn(`[DataAdapter] GET /api/intelligence/roads failed: ${e.message}. Falling back to CSV engine.`);
+      
+      // Fallback: Local CSV calculation
+      const dateRows = this.dataByDate[date] || [];
+      let filtered = dateRows;
+
+      if (timeWindow && timeWindow.startHour !== undefined && timeWindow.endHour !== undefined) {
+        filtered = dateRows.filter(r => r.hour >= timeWindow.startHour && r.hour <= timeWindow.endHour);
       }
-      const agg = linkAgg[r.linkId];
-      agg.scoreSum += r.congestionScore;
-      agg.speedSum += r.speed;
-      agg.delaySum += r.delay;
-      agg.occSum += r.occupancy;
-      agg.volumeSum += r.volume;
-      agg.count++;
+
+      const linkAgg = {};
+      for (const r of filtered) {
+        if (!linkAgg[r.linkId]) {
+          linkAgg[r.linkId] = {
+            linkId: r.linkId,
+            scoreSum: 0,
+            speedSum: 0,
+            delaySum: 0,
+            occSum: 0,
+            volumeSum: 0,
+            count: 0
+          };
+        }
+        const agg = linkAgg[r.linkId];
+        agg.scoreSum += r.congestionScore;
+        agg.speedSum += r.speed;
+        agg.delaySum += r.delay;
+        agg.occSum += r.occupancy;
+        agg.volumeSum += r.volume;
+        agg.count++;
+      }
+
+      const hotspots = Object.values(linkAgg).map(agg => ({
+        linkId: agg.linkId,
+        congestionScore: agg.count > 0 ? agg.scoreSum / agg.count : 0,
+        avgSpeed: agg.count > 0 ? agg.speedSum / agg.count : 0,
+        avgDelay: agg.count > 0 ? agg.delaySum / agg.count : 0,
+        avgOccupancy: agg.count > 0 ? agg.occSum / agg.count : 0,
+        volume: agg.volumeSum
+      }));
+
+      return hotspots.sort((a, b) => b.congestionScore - a.congestionScore);
     }
-
-    const hotspots = Object.values(linkAgg).map(agg => ({
-      linkId: agg.linkId,
-      congestionScore: agg.count > 0 ? agg.scoreSum / agg.count : 0,
-      avgSpeed: agg.count > 0 ? agg.speedSum / agg.count : 0,
-      avgDelay: agg.count > 0 ? agg.delaySum / agg.count : 0,
-      avgOccupancy: agg.count > 0 ? agg.occSum / agg.count : 0,
-      volume: agg.volumeSum
-    }));
-
-    return hotspots.sort((a, b) => b.congestionScore - a.congestionScore);
   },
 
   async getCongestionHeatmap() {

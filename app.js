@@ -121,17 +121,17 @@ const App = {
   /**
    * Triggers rendering on the active view controller.
    */
-  renderActiveView() {
+  async renderActiveView() {
     if (!DataAdapter.isLoaded) return;
 
     switch (this.activePage) {
       case 'overview':
-        OverviewView.render();
+        await OverviewView.render();
         break;
       case 'congestion':
         // Ensure filters are synchronized to global selection
         CongestionView.setFilters(this.selectedLinkId, this.selectedDate);
-        CongestionView.render();
+        await CongestionView.render();
         break;
       case 'predictions':
         // Synchronize predictions view filter states
